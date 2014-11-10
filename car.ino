@@ -161,8 +161,10 @@ void wifiLoop(void) {
         } else if (strcmp(path, "/right") == 0) {
           turn(RIGHT);
         } else if (strcmp(path, "/backward") == 0) {
+          stop();
           direction = BACKWARD;
         } else if (strcmp(path, "/forward") == 0) {
+          stop();
           direction = FORWARD;
         }
       }
