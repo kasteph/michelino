@@ -1,5 +1,7 @@
 #define BACKWARD HIGH
 #define FORWARD LOW
+#define LEFT 0
+#define RIGHT 1
 
 #define trigPin 0 
 #define echoPin 1
@@ -64,6 +66,7 @@ int bufindex = 0;
 char action[MAX_ACTION+1];
 char path[MAX_PATH+1];
 bool moving = true;
+int direction = FORWARD;
 
 void motor1(int direction, int speed) {
   digitalWrite(8, direction); //Establishes forward direction of Channel A
@@ -86,9 +89,9 @@ void stop() {
   motor2(FORWARD, 0);
 }
 
-void turn() {
-  motor1(FORWARD, 255);
-  motor2(BACKWARD, 235);
+void turn(int direction) {
+  motor1(direction == LEFT ? FORWARD : BACKWARD, 255);
+  motor2(direction == LEFT ? BACKWARD : FORWARD, 235);
   delay(768);
 }
 
@@ -149,7 +152,19 @@ void wifiLoop(void) {
         // Now send the response data.
         client.fastrprintln(F("Hello world!"));
         client.fastrprint(F("You accessed path: ")); client.fastrprintln(path);
-        moving = !moving;
+        if (strcmp(path, "/start") == 0) {
+          moving = true;
+        } else if (strcmp(path, "/stop") == 0) {
+          moving = false;
+        } else if (strcmp(path, "/left") == 0) {
+          turn(LEFT);
+        } else if (strcmp(path, "/right") == 0) {
+          turn(RIGHT);
+        } else if (strcmp(path, "/backward") == 0) {
+          direction = BACKWARD;
+        } else if (strcmp(path, "/forward") == 0) {
+          direction = FORWARD;
+        }
       }
       else {
         // Unsupported action, respond with an HTTP 405 method not allowed error.
@@ -185,25 +200,25 @@ void setup(void) {
 
 void loop(){
   wifiLoop();
-  if (moving) {
-    long duration, distance;
-    digitalWrite(trigPin, LOW); 
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-    duration = pulseIn(echoPin, HIGH);
-    distance = (duration/2) / 29.1;
-    if (distance < 12) {  // This is where the LED On/Off happens
-      digitalWrite(led,HIGH); // When the Red condition is met, the Green LED should turn off
-      turn();
+  long duration, distance;
+  digitalWrite(trigPin, LOW); 
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration/2) / 29.1;
+  if (distance < 12) {  // This is where the LED On/Off happens
+    digitalWrite(led,HIGH); // When the Red condition is met, the Green LED should turn off
+    turn(LEFT);
   }
-    else {
-      digitalWrite(led,LOW);
-      move(FORWARD);
+  else {
+    digitalWrite(led,LOW);
+    if (moving) {
+      move(direction);
+    } else {
+      stop();
     }
-  } else {
-    stop();
   }
 }
 
