@@ -92,7 +92,7 @@ void stop() {
 void turn(int direction) {
   motor1(direction == LEFT ? FORWARD : BACKWARD, 255);
   motor2(direction == LEFT ? BACKWARD : FORWARD, 235);
-  delay(768);
+  delay(314);
 }
 
 void wifiSetup() {
