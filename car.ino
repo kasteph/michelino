@@ -65,7 +65,7 @@ uint8_t buffer[BUFFER_SIZE+1];
 int bufindex = 0;
 char action[MAX_ACTION+1];
 char path[MAX_PATH+1];
-bool moving = true;
+bool moving = false;
 int direction = FORWARD;
 
 void motor1(int direction, int speed) {
@@ -197,6 +197,7 @@ void setup(void) {
   pinMode(led, OUTPUT);
   
   wifiSetup();
+  digitalWrite(led, HIGH);
 }
 
 
@@ -211,11 +212,11 @@ void loop(){
   duration = pulseIn(echoPin, HIGH);
   distance = (duration/2) / 29.1;
   if (distance < 12) {  // This is where the LED On/Off happens
-    digitalWrite(led,HIGH); // When the Red condition is met, the Green LED should turn off
+    digitalWrite(led, LOW); // When the Red condition is met, the Green LED should turn off
     turn(LEFT);
   }
   else {
-    digitalWrite(led,LOW);
+    digitalWrite(led, HIGH);
     if (moving) {
       move(direction);
     } else {
