@@ -28,10 +28,6 @@ Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ
 #define WLAN_PASS       "nevergraduate!"
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
-#define IDLE_TIMEOUT_MS  3000      // Amount of time to wait (in milliseconds) with no data 
-                                   // received before closing the connection.  If you know the server
-                                   // you're accessing is quick to respond, you can reduce this value.
-
 #define LISTEN_PORT           80 
 #define MAX_ACTION            10      // Maximum length of the HTTP action that can be parsed.
 
@@ -116,10 +112,10 @@ void wifiSetup() {
 void wifiLoop(void) {
   Adafruit_CC3000_ClientRef client = httpServer.available();
   if (client) {
+    bool turn_left = false, turn_right = false, change_direction = false;
+
     bufindex = 0;
     memset(&buffer, 0, sizeof(buffer));
-    
-    // Clear action and path strings.
     memset(&action, 0, sizeof(action));
     memset(&path,   0, sizeof(path));
 
@@ -129,9 +125,10 @@ void wifiLoop(void) {
     // Read all the incoming data until it can be parsed or the timeout expires.
     bool parsed = false;
     while (!parsed && (millis() < endtime) && (bufindex < BUFFER_SIZE)) {
-      if (client.available()) {
-        buffer[bufindex++] = client.read();
-      }
+      if (!client.available())
+        break;
+
+      buffer[bufindex++] = client.read();
       parsed = parseRequest(buffer, bufindex, action, path);
     }
 
@@ -150,22 +147,28 @@ void wifiLoop(void) {
         // Send an empty line to signal start of body.
         client.fastrprintln(F(""));
         // Now send the response data.
-        client.fastrprintln(F("Hello world!"));
-        client.fastrprint(F("You accessed path: ")); client.fastrprintln(path);
         if (strcmp(path, "/start") == 0) {
           moving = true;
+          client.fastrprintln(F("starting"));
         } else if (strcmp(path, "/stop") == 0) {
           moving = false;
+          client.fastrprintln(F("stopping"));
         } else if (strcmp(path, "/left") == 0) {
-          turn(LEFT);
+          turn_left = true;
+          client.fastrprintln(F("turning left"));
         } else if (strcmp(path, "/right") == 0) {
-          turn(RIGHT);
+          turn_right = true;
+          client.fastrprintln(F("turning right"));
         } else if (strcmp(path, "/backward") == 0) {
-          stop();
+          change_direction = true;
           direction = BACKWARD;
+          client.fastrprintln(F("going backward"));
         } else if (strcmp(path, "/forward") == 0) {
-          stop();
+          change_direction = true;
           direction = FORWARD;
+          client.fastrprintln(F("going forward"));
+        } else {
+          client.fastrprint(F("unknown command: ")); client.fastprintln(path);
         }
       }
       else {
@@ -181,6 +184,16 @@ void wifiLoop(void) {
 
     // Close the connection when done.
     client.close();
+
+    if (turn_left) {
+      turn(LEFT);
+    }
+    else if (turn_right) {
+      turn(RIGHT);
+    }
+    else if (change_direction) {
+      stop();
+    }
   }
 }
 
@@ -225,27 +238,29 @@ void loop(){
   }
 }
 
+// Parse the action and path from the first line of an HTTP request.
+bool parseFirstLine(char* line, char* action, char* path) {
+  // Parse first word up to whitespace as action.
+  char* lineaction = strtok(line, " ");
+  if (lineaction == NULL)
+    return false;
+  strncpy(action, lineaction, MAX_ACTION);
+
+  // Parse second word up to whitespace as path.
+  char* linepath = strtok(NULL, " ");
+  if (linepath == NULL)
+    return false;
+  strncpy(path, linepath, MAX_PATH);
+
+  return true;
+}
 
 bool parseRequest(uint8_t* buf, int bufSize, char* action, char* path) {
   // Check if the request ends with \r\n to signal end of first line.
   if (bufSize < 2)
     return false;
-  if (buf[bufSize-2] == '\r' && buf[bufSize-1] == '\n') {
-    parseFirstLine((char*)buf, action, path);
-    return true;
-  }
-  return false;
-}
+  if (buf[bufSize-2] != '\r' || buf[bufSize-1] != '\n')
+    return false;
 
-// Parse the action and path from the first line of an HTTP request.
-void parseFirstLine(char* line, char* action, char* path) {
-  // Parse first word up to whitespace as action.
-  char* lineaction = strtok(line, " ");
-  if (lineaction != NULL)
-    strncpy(action, lineaction, MAX_ACTION);
-  // Parse second word up to whitespace as path.
-  char* linepath = strtok(NULL, " ");
-  if (linepath != NULL)
-    strncpy(path, linepath, MAX_PATH);
+  return parseFirstLine((char*)buf, action, path);
 }
-
